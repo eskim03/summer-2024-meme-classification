@@ -168,6 +168,10 @@ class Meme_Classify():
         return len(item_list)
 
     def __getitem__(self, idx):
+        """
+        dataset[idx]
+        """
+
         
   
         maxlength = 30 # REMEMBER TO ADJUST THIS!!!!!!!!
