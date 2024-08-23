@@ -114,7 +114,7 @@ def one_epoch(train_data_loader, model, optimizer, loss_fn, device):
                     if grad.abs().mean() > max_grad:
                         max_grad = grad.abs().mean()
                    
-                    print(f"{name} - Mean: {grad.abs().mean()}, Max: {grad.max()}, Min:{grad.min()} ,Grad Norm: {param_norm}")
+                    #print(f"{name} - Mean: {grad.abs().mean()}, Max: {grad.max()}, Min:{grad.min()} ,Grad Norm: {param_norm}")
                     
             # Analyze gradients
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad*4)
