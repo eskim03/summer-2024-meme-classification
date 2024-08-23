@@ -14,7 +14,7 @@ import os, sys
 import cv2
 from torchvision import transforms
 from transformers import AutoImageProcessor, AutoModel
-from transformers import DistilBertTokenizer
+from transformers import BertTokenizer
 import torch
 from PIL import Image
 import requests
@@ -40,7 +40,7 @@ class Meme_DataSet():
         
         # Fill in the efficient net
         if text_model == 'DistilledBert':
-            self.text_tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
+            self.text_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
         self.images = []
         self.text = []
         self.label = []
@@ -109,6 +109,8 @@ class Meme_DataSet():
             return_tensors='pt'  # Return PyTorch tensors
             
             )
+        
+        print(text_batch['input_ids'])
       
         
         return {'image': image['pixel_values'], 'input_ids': text_batch['input_ids'], 'attention': text_batch['attention_mask'], 'label': self.label}
@@ -141,7 +143,7 @@ class Meme_DataSet():
 class Meme_Classify():
     
         
-    def __init__(self, img_dir, text_file ='Datasets/TEXT_sentences.csv', label = 'Datasets/Sentiments.csv' ,img_model = 'DINOv2', text_model = 'DistilledBert'):
+    def __init__(self, img_dir, text_file ='Datasets/TEXT_sentences.csv', label = 'Datasets/Sentiments.csv' ,img_model = 'DINOv2', text_model = 'Bert'):
     
         self.nlp = spacy.load("en_core_web_sm")
 
@@ -154,8 +156,8 @@ class Meme_Classify():
             self.img_preprocess = AutoImageProcessor.from_pretrained('facebook/dinov2-base')
         
         # Fill in the efficient net
-        if text_model == 'DistilledBert':
-            self.text_tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
+        if text_model == 'Bert':
+            self.text_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
         self.images = []
         self.text = []
         self.label = []
@@ -168,19 +170,21 @@ class Meme_Classify():
     def __getitem__(self, idx):
         
   
-        maxlength = 196 # REMEMBER TO ADJUST THIS!!!!!!!!
+        maxlength = 30 # REMEMBER TO ADJUST THIS!!!!!!!!
         text = pd.read_csv(self.text_path)
         label = pd.read_csv(self.labelpath)
         
         label = label['sarcasm'].tolist()
         l = label[idx]
         if l == 1:
-            self.label = 'a sarcastic meme'
+            self.label = ''
+            #self.label = 'a sarcastic meme'
             self.raw_label = l
             
  
         else:
-            self.label = 'a regular meme'
+            self.label = ''
+            #self.label = 'a regular meme'
             self.raw_label = l
         
 
@@ -201,6 +205,7 @@ class Meme_Classify():
         transform = transforms.Compose([
                                transforms.Resize((224, 224)),
                                transforms.ToTensor(),
+                               transforms.ColorJitter(brightness=.3, hue=.2),
                                transforms.Normalize((0.48145466, 0.4578275, 0.40821073),(0.26862954, 0.26130258, 0.27577711)),
                                 ])
         
@@ -221,8 +226,7 @@ class Meme_Classify():
         
         im = Image.open(io.BytesIO(cleaned_data))
         image_batch = transform(im)
-        #print(image_batch.shape)
-        
+
            
    
         if self.img_preprocess:
@@ -233,10 +237,10 @@ class Meme_Classify():
         
         
         #CAPTION at entry 1
-        sentence_pair = (self.text, self.label)
+      
    
         text_batch = self.text_tokenizer.encode_plus(
-            sentence_pair,
+            self.text + self.label,
             add_special_tokens=True,  # Add [CLS] and [SEP]
             max_length=maxlength,
             padding='max_length',
@@ -245,8 +249,7 @@ class Meme_Classify():
             return_tensors='pt'  # Return PyTorch tensors
             
             )
-      
-        
+          
         #return {'image': image['pixel_values'], 'input_ids': text_batch['input_ids'], 'attention': text_batch['attention_mask'], 'label': self.raw_label}
         return {'image': image_batch, 'input_ids': text_batch['input_ids'], 'attention': text_batch['attention_mask'], 'label': self.raw_label}
     
@@ -282,7 +285,7 @@ class Meme_Verify():
         
         # Fill in the efficient net
         if text_model == 'DistilledBert':
-            self.text_tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
+            self.text_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
         self.images = []
  
         self.label = []
@@ -355,7 +358,7 @@ class Meme_Verify():
             return_tensors='pt'  # Return PyTorch tensors
             
             )
-      
+        
         
         return {'image': image['pixel_values'], 'input_ids': text_batch['input_ids'], 'attention': text_batch['attention_mask']}
     
