@@ -10,10 +10,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Subset
-from custom_models.clip import clip_for_meme, I_T_ContrastiveLoss, Huber_ContrastiveLoss
+from custom_models.clip_class import clip_for_meme, I_T_ContrastiveLoss, Huber_ContrastiveLoss
 from Datasets.CLIP_Datasets import Meme_Classify, Meme_Verify# Custom Dataset
 import os, sys
-
+from sklearn.metrics import roc_auc_score,f1_score
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -67,10 +67,8 @@ def one_epoch(train_data_loader, model, optimizer, loss_fn, device):
     epoch_loss = []
     sum_correct_pred = 0
     total_samples = 0
-    tp = 0
-    fp = 0
-    tn = 0
-    fn = 0
+    classlist = []
+    labellist = []
 
     model.train()
  
@@ -84,32 +82,17 @@ def one_epoch(train_data_loader, model, optimizer, loss_fn, device):
 
        
         optimizer.zero_grad()
-      
-        img_features, txt_features = model(images, input_ids, attention_mask)
         
-        if i%24 == 0:
-            sns.heatmap(img_features.detach().numpy(), cmap='viridis')
-            plt.title('img')
-            plt.show()
-        
-            sns.heatmap(txt_features.detach().numpy(), cmap='viridis')
-            plt.title('txt')
-            plt.show()
-        
-        
+        class_ = model(images, input_ids, attention_mask)
+   
+        class_ = class_.float()
+        classlist.append(class_.detach())
+        labellist.append(labels.detach().float())
+     
+        b_loss = loss_fn(class_, labels.float())
        
        
-       
-        loss_fn.set_labels(labels)
-        b_loss = loss_fn(img_features, txt_features)
-       
-        logits,_ = loss_fn.logits(txt_features, img_features)
-        
-        if i%24 == 0:
-            sns.heatmap(logits.detach().numpy(), cmap='viridis')
-            plt.title('logits')
-            plt.show()
-        
+
         
         epoch_loss.append(b_loss.item())      
         #Backward
@@ -144,23 +127,25 @@ def one_epoch(train_data_loader, model, optimizer, loss_fn, device):
         #labels = torch.arange(logits.shape[0], device=device, dtype=torch.long)
         
         
-        sum_correct_pred += (labels[torch.argmax(logits,dim=-1)] == labels).sum().item()
+        sum_correct_pred += (torch.round(class_) == labels).sum().item()
         total_samples += len(labels)
 
-        # calculate acc per minibatch
-        text_logits = loss_fn.logits(img_features, txt_features)
-        # The following quoted because we don't need labels.
-        #labels = loss_fn.get_ground_truth(img_features.device, txt_features.shape[0])
-        #sum_correct_pred += (torch.argmax(logits,dim=-1) == labels).sum().item()
-        #total_samples += len(labels)
-    
-        if i%10 == 0: print("train_loss = ",b_loss.item())
-
+     
+        if i%15 == 0: 
+            print("train_loss = ",b_loss.item())
+      
+        
+    labellist = torch.cat(labellist)
+    classlist = torch.cat(classlist)
+    torch.save(labellist, 'label.pth')
+    torch.save(labellist, 'class.pth')
     acc = round(sum_correct_pred/total_samples,4)
     ###Acc and Loss
     epoch_loss = np.mean(epoch_loss)
+    auroc = roc_auc_score( labellist, classlist)
+    f1 = f1_score(labellist, torch.round(classlist), average='macro')
   
-    return epoch_loss, text_logits, acc
+    return epoch_loss, auroc, acc, f1
 
 
 def classification(test_loader, model, loss_fn, device):
@@ -170,6 +155,8 @@ def classification(test_loader, model, loss_fn, device):
     epoch_loss = []
     sum_correct_pred = 0
     total_samples = 0
+    classlist = []
+    labellist = []
     
 
     model.eval()
@@ -187,23 +174,34 @@ def classification(test_loader, model, loss_fn, device):
             
 
             #Forward
-            img_features, txt_features = model(images, input_ids, attention_mask)
+            class_ = model(images, input_ids, attention_mask)
+            
+            classlist.append(class_.detach())
+            labellist.append(labels.detach().float())
             #Calculating Loss
-            logits,_ = loss_fn.logits(txt_features, img_features)
-            loss_fn.set_labels(labels)
-            _loss = loss_fn(img_features, txt_features)
+            #logits,_ = loss_fn.logits(txt_features, img_features)
+            #loss_fn.set_labels(labels)
+            class_ = class_.float()
+            _loss = loss_fn(class_, labels.float())
             epoch_loss.append(_loss.item())
-            print(torch.argmax(logits,dim=-1))
-            labels = torch.arange(logits.shape[0], device=device, dtype=torch.long)
-            sum_correct_pred += (torch.argmax(logits,dim=-1) == labels).sum().item()
+            #print(torch.argmax(logits,dim=-1))
+            sum_correct_pred += (torch.round(class_) == labels).sum().item()
             total_samples += len(labels)
             
  
             
     ###Acc and Loss
     epoch_loss = np.mean(epoch_loss)
+    labellist = torch.cat(labellist)
+    classlist = torch.cat(classlist)
+    #print(classlist ,labellist)
     acc = round(sum_correct_pred/total_samples,4)
-    return epoch_loss, logits, acc
+    ###Acc and Loss
+    auroc = roc_auc_score( labellist, classlist)
+    f1 = f1_score(labellist, torch.round(classlist), average='macro')
+    print('f1:', f1)
+    print("AUROC:", auroc)
+    return epoch_loss, auroc, acc,f1
 
 
 def train(batch_size, epochs, ratio = 0.5, load = 0, train_loader = None, loss = 1):
@@ -258,17 +256,17 @@ def train(batch_size, epochs, ratio = 0.5, load = 0, train_loader = None, loss =
     """
     
     if loss == 1:
-        loss_fn = I_T_ContrastiveLoss() # change temperature if needed
+        pass
+    loss_fn = nn.BCELoss()
     
-    if loss == 2:
-        loss_fn = Huber_ContrastiveLoss()
-    optimizer = torch.optim.Adam(model.parameters(),lr=1e-8)  #and change learning rate if not working
+   
+    optimizer = torch.optim.Adam(model.parameters(),lr=1e-5)  #and change learning rate if not working
     print("\n \t ----------- Model Loaded------------")
     
     
     if load>0: 
         print('\n \t ------------ loading epoch ', str(load), ' ------------')
-        model, optimizer, epoch = load_checkpoint('/scratch/borcea_root/borcea0/yiyangl/model_states/checkpoint_'+str(load)+'.pt',model, optimizer)
+        model, optimizer, epoch = load_checkpoint('/scratch/borcea_root/borcea0/yiyangl/model_states/class_checkpoint_'+str(load)+'.pt',model, optimizer)
         epoch += 1
     else:
         epoch = 0
@@ -284,23 +282,24 @@ def train(batch_size, epochs, ratio = 0.5, load = 0, train_loader = None, loss =
         begin = time.time()
 
         ###Training
-        loss, logits, acc = one_epoch(train_loader, model, optimizer, loss_fn, device)
+        loss, auroc, acc, f1 = one_epoch(train_loader, model, optimizer, loss_fn, device)
         ###Validation
         #val_loss, val_acc = val_one_epoch(val_loader, model, loss_fn, device)
 
         print('\n\t Epoch : ', epoch + 1)
         print('\n\t Accuracy : ', acc)
+        print('\n\t AUROC : ', auroc)
+        print('\n\t f1 : ', f1)
         print("\t Training loss: ",round(loss,4))
         print('\t Training time current epoch: ', round((time.time()-begin),2), 'seconds')
         
-        save_checkpoint(model, optimizer, epoch+1, '/scratch/borcea_root/borcea0/yiyangl/model_states/checkpoint_'+str(epoch+1)+'.pt')
+        save_checkpoint(model, optimizer, epoch+1, '/scratch/borcea_root/borcea0/yiyangl/model_states/class_checkpoint_'+str(epoch+1)+'.pt')
         epoch += 1
         
         
     torch.save(model.state_dict(),'clip_for_meme.pth')
-    epochloss, logit, acc = classification(eval_loader, model, loss_fn, device)
-    print(logit)
-    print('prediction loss:', epochloss, ' accuracy: ', acc)
+    epochloss, auroc, acc, f1 = classification(eval_loader, model, loss_fn, device)
+    print('prediction loss:', epochloss, ' accuracy: ', acc, 'auroc', auroc, 'f1', f1)
     
     
     
