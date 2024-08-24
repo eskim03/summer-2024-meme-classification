@@ -226,7 +226,7 @@ class clip_for_meme(nn.Module):
                 
             self.txt_projection.apply(self.init_weights)
             
-        
+        # classification module
         self.flat = nn.Flatten()
         self.proj_into_class = nn.Sequential(
             nn.Linear(projection_size**2, 24),
@@ -278,11 +278,11 @@ class clip_for_meme(nn.Module):
         text_out = self.text_model(input_ids=input_ids, attention_mask=attention_mask)
        
         token_embeddings = text_out['last_hidden_state']
-        #layer_outputs = text_out.hidden_states
-        #token_embeddings = torch.cat([layer_outputs[i] for i in [-1, -2]], dim=-1)/2
         mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
-        #
+
         text_embed, _ = torch.max(token_embeddings * mask_expanded, 1)
+
+        # We used a mix of max and median pooling to define the sentence embedding.
         text_embed += 0.5*torch.sum(token_embeddings * mask_expanded, 1) / torch.clamp(mask_expanded.sum(1), min=1e-9)
 
         '''
@@ -291,7 +291,7 @@ class clip_for_meme(nn.Module):
         '''
         text_embed = self.txt_projection(text_embed).unsqueeze(1)
         
-        
+        # The feature interaction matrix
         contra = F.normalize(text_embed, p=2, dim=-1).permute(0,2,1) @ F.normalize(image_embed, p=2, dim=-1)
         contra = contra.reshape(contra.shape[0],256*256)
         
@@ -303,6 +303,9 @@ class clip_for_meme(nn.Module):
     
     
     def init_weights(self,m):
+        ''' Initiate the weights to avoid the dead relu problem
+        '''
+        
         if isinstance(m, nn.Linear):
             torch.nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
             
