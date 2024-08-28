@@ -52,24 +52,17 @@ Features: Images and Captions.
 
   
 # Exploratory Analysis
-Class 1 example:
-
-
-
-
-Class 0 example:
-
 
 Class 1 vs Class 0  = 1: 2.78
 
-
+<img src = 'classes.png' width = 500>
 
 
 
 
 Visualization of the image and text embeddings by class:
 
-
+<img src = 'class.png' width = 800>
 
 
 # Structure of the repository
@@ -84,3 +77,5 @@ Visualization of the image and text embeddings by class:
 # Results:
 
 The multimodal model: accuracy:  0.7436 auroc 0.7969 f1 0.6392
+
+<img src = 'confusion matrix.png' width = 600>
