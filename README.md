@@ -51,8 +51,23 @@ Features: Images and Captions.
 
 
   
-Three classes are included in MemeDatasets.py:
+# Exploratory Analysis
+Class 1 example:
 
+
+
+
+Class 0 example:
+
+
+Class 1 vs Class 0  = 1: 2.78
+
+
+
+
+
+
+Visualization of the image and text embeddings by class:
 
 
 
