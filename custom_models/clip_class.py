@@ -290,11 +290,11 @@ class clip_for_meme(nn.Module):
         text_embed = self.txt_projection(text_embed).unsqueeze(1)
         
         # The feature interaction matrix
-        contra = F.normalize(text_embed, p=2, dim=-1).permute(0,2,1) @ F.normalize(image_embed, p=2, dim=-1)
-        contra = contra.reshape(contra.shape[0],256*256)
+        FIT = F.normalize(text_embed, p=2, dim=-1).permute(0,2,1) @ F.normalize(image_embed, p=2, dim=-1)
+        FIT = contra.reshape(contra.shape[0],256*256)
         
         
-        class_ = self.proj_into_class(contra)
+        class_ = self.proj_into_class(FIT)
       
         return class_.squeeze(1).float()
 
