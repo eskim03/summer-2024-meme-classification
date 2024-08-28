@@ -60,7 +60,7 @@ Class 1 vs Class 0  = 1: 2.78
 
 
 
-Visualization of the image and text embeddings by class:
+Visualization of the text (left) and image (right) embeddings by class:
 
 <img src = 'class.png' width = 800>
 
