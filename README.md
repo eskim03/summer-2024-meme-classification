@@ -73,9 +73,13 @@ Visualization of the text (left) and image (right) embeddings by class:
 
 *The Datasets folder includes a sample of images and texts and the Dataset class in CLIP_Datasets.py*
 
+*The TEXT Encoders folder includes the ipynb of the text only data exploration script labeled "Data_Exploration_TEXT_distilBERT.ipynb"* 
+
 
 # Results:
 
 The multimodal model: accuracy:  0.7436 auroc 0.7969 f1 0.6392
 
 <img src = 'confusion matrix.png' width = 600>
+
+The unimodal model (DistilBERT): accuracy: 0.4605 auroc 0.4868  
